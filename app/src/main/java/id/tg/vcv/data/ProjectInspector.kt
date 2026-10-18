@@ -44,7 +44,6 @@ object ProjectInspector {
             { it.substringAfterLast('/').lowercase() },
         )
     )
-    }
 
     fun isJunk(path: String): Boolean {
         val p = path.replace('\\', '/')
