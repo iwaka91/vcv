@@ -1,0 +1,10 @@
+FONT MEREK VcV (opsional)
+
+Taruh 3 file font berikut di folder ini (unduh gratis dari fonts.google.com):
+
+  SpaceGrotesk-Medium.ttf
+  SpaceGrotesk-Bold.ttf
+  JetBrainsMono-ExtraBold.ttf
+
+Nama file harus persis sama. Jika file belum ada, aplikasi otomatis memakai
+font bawaan HP (tetap berjalan normal, hanya tampilan hurufnya berbeda).

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="vcv_bg">#FF101017</color>
+    <color name="vcv_surface">#FF1C1C26</color>
+    <color name="vcv_accent">#FFFF7A1A</color>
+    <color name="vcv_yellow">#FFFFC845</color>
+    <color name="vcv_teal">#FF3DD6A3</color>
+    <color name="vcv_text">#FFECEAF2</color>
+</resources>

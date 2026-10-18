@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Vcv" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/vcv_bg</item>
+        <item name="android:statusBarColor">@color/vcv_bg</item>
+        <item name="android:navigationBarColor">@color/vcv_bg</item>
+    </style>
+
+    <!-- Layar pembuka: ikon VcV di tengah, latar gelap -->
+    <style name="Theme.Vcv.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/vcv_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.Vcv</item>
+    </style>
+</resources>
