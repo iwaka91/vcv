@@ -1,0 +1,79 @@
+Downloading https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+.............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
+
+Welcome to Gradle 8.11.1!
+
+Here are the highlights of this release:
+ - Parallel load and store for Configuration Cache
+ - Java compilation errors at the end of the build output
+ - Consolidated report for warnings and deprecations
+
+For more details see https://docs.gradle.org/8.11.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseResValues
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:javaPreCompileRelease
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:processReleaseResources
+> Task :app:mergeReleaseNativeLibs
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:mergeReleaseArtProfile
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+
+> Task :app:compileReleaseKotlin
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/data/ProjectInspector.kt:87:26 Unresolved reference 'HTML_EXT'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/data/ProjectInspector.kt:153:1 Syntax error: Expecting a top level declaration.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/data/ProjectPreparer.kt:103:38 Unresolved reference 'externalHosts'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/data/ProjectPreparer.kt:115:63 Unresolved reference 'listFolder'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/data/ProjectPreparer.kt:117:82 Unresolved reference 'listZip'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/data/ProjectPreparer.kt:144:60 Unresolved reference 'isJunk'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/data/ProjectPreparer.kt:182:38 Unresolved reference 'isJunk'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/ui/MainViewModel.kt:171:50 Unresolved reference 'listZip'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/ui/MainViewModel.kt:177:90 Unresolved reference 'listFolder'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/ui/MainViewModel.kt:185:57 Unresolved reference 'countRelativeRefs'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/ui/MainViewModel.kt:274:46 Unresolved reference 'listZip'.
+e: file:///home/runner/work/vcv/vcv/app/src/main/java/id/tg/vcv/ui/MainViewModel.kt:278:112 Unresolved reference 'countRelativeRefs'.
+
+> Task :app:mergeExtDexRelease
+> Task :app:compileReleaseKotlin FAILED
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1792345293543.json
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2m 9s
+26 actionable tasks: 26 executed
