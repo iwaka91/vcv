@@ -6,20 +6,32 @@ dengan daftar 10 proyek terbaru dan fitur bagikan ke HP siswa lewat QR.
 - Paket: `id.tg.vcv` · Android 8.0+ · Kotlin + Jetpack Compose · tema gelap
 - Server lokal: NanoHTTPD (gzip, file di RAM, cache ETag, antrean 24 koneksi)
 - QR: ZXing
+- Versi saat ini: **1.1** (uji coba). Setelah lolos semua uji → 2.0 stable.
 
 ---
 
-## 1. Cara build APK debug
+## 1. Cara mendapatkan APK
+
+**Cara cepat (otomatis):** setiap perubahan di cabang `main` dibangun otomatis oleh GitHub Actions.
+APK jadi ada di cabang **`apk`** repo ini (file `VcV-<versi>.apk`).
+
+**Pindah dari 1.0 ke 1.1:** hapus dulu VcV 1.0 dari HP, lalu pasang 1.1.
+Tanda tangan APK berbeda dari versi Android Studio, jadi tidak bisa ditimpa langsung.
+Daftar 10 terbaru akan kosong lagi.
+
+> APK uji ditandatangani kunci `signing/vcv-test.jks` (khusus uji, terbuka di repo publik).
+> Untuk rilis Play Store wajib memakai kunci rilis baru yang dirahasiakan.
+
+**Cara manual (Android Studio):**
 
 1. Ekstrak ZIP ini, lalu buka foldernya di **Android Studio** (File → Open → pilih folder `VibeCodingViewer`).
 2. Tunggu proses **Gradle Sync** selesai (pertama kali butuh internet untuk mengunduh Gradle & pustaka).
    - Jika Android Studio menawarkan *upgrade* Android Gradle Plugin, boleh disetujui.
-3. (Opsional) Masukkan font merek ke `app/src/main/assets/fonts/` — lihat `BACA-SAYA.txt` di folder itu.
+3. Font merek (Space Grotesk, JetBrains Mono) sudah ada di `app/src/main/assets/fonts/`.
 4. Sambungkan HP (USB debugging aktif) lalu tekan **Run ▶**,
    atau buat file APK: **Build → Build App Bundle(s) / APK(s) → Build APK(s)**.
    File jadi ada di `app/build/outputs/apk/debug/app-debug.apk`.
 
-> Kode ini ditulis tanpa bisa dikompilasi di lingkungan pembuatnya.
 > Jika muncul error saat build, salin pesan error dari panel **Build** dan kirimkan untuk diperbaiki.
 
 ---
@@ -33,16 +45,18 @@ app/src/main/java/id/tg/vcv/
 ├─ data/
 │  ├─ ProjectRecord.kt       Data satu proyek di daftar
 │  ├─ ProjectStore.kt        Daftar 10 terbaru (SharedPreferences + JSON)
-│  ├─ Settings.kt            Peramban bawaan, waktu berhenti otomatis, port
-│  ├─ ProjectInspector.kt    Cari index.html / file HTML lain, cek file pendamping, cek kesiapan offline
+│  ├─ Settings.kt            Peramban bawaan, halaman default, waktu berhenti otomatis, port, pilihan PIN
+│  ├─ ProjectInspector.kt    Cari index.html / daftar semua halaman, cek file pendamping, cek kesiapan offline
 │  ├─ ProjectPreparer.kt     Baca ulang file asli → ekstrak ke cache/serve/
 │  └─ UriInfo.kt             Nama & lokasi file yang ramah dibaca
 ├─ server/
 │  ├─ VcvHttpServer.kt       Server statis (gzip, RAM, ETag, Range, antrean terbatas)
-│  ├─ ServerController.kt    Satu server aktif, mode lokal / berbagi
+│  ├─ ServerController.kt    Satu server aktif, mode lokal / berbagi, PIN
+│  ├─ PinGate.kt             Kunci PIN berbagi (PIN acak, tanda masuk, batas salah)
 │  ├─ VcvServerService.kt    Foreground service + notifikasi + berhenti otomatis + wake/WiFi lock
 │  └─ NetUtil.kt             Alamat IP WiFi/hotspot
-└─ ui/                       Tampilan Compose (beranda, sheet, dialog, QR, peramban internal, pengaturan)
+└─ ui/                       Tampilan Compose (beranda, sheet, dialog, QR, peramban internal, pengaturan,
+                             Tentang, lembar Pilih halaman)
 ```
 
 ---
@@ -59,7 +73,11 @@ app/src/main/java/id/tg/vcv/
 | Nama sama | Pilihan Timpa / Abaikan. |
 | HTML tunggal dengan file pendamping | Disarankan Import Folder. |
 | Satu proyek aktif | Membuka proyek lain saat berbagi → konfirmasi "Hentikan berbagi?". |
-| Server | Port 8080 (pindah otomatis bila terpakai). Mode lokal hanya bisa diakses HP ini; mode berbagi terbuka untuk jaringan WiFi/hotspot. |
+| Server | Port dasar 8080. Mode lokal hanya bisa diakses HP ini; mode berbagi terbuka untuk jaringan WiFi/hotspot. |
+| Data per proyek | Tiap proyek memakai port sendiri (port dasar + nomor urut: 8080, 8081, …), sehingga localStorage satu proyek tidak terbaca proyek lain. Bila port terpakai, pindah ke +100. |
+| Banyak halaman | Import proyek dengan lebih dari satu HTML → lembar **Pilih halaman** (index.html terpilih, file sampah disaring, dikelompokkan per folder, pencarian bila banyak). Ketuk biasa membuka halaman terakhir dipilih. Pilih ulang lewat tekan lama / titik tiga. Pengaturan: *Terakhir dipilih* / *Selalu index.html*. |
+| PIN berbagi | Opsional (sakelar di layar QR). PIN 4 angka acak tertanam di QR (scan = langsung masuk). Yang membuka lewat alamat (tombol Salin) diminta PIN. Ganti PIN: QR lama tidak berlaku, siswa yang sudah masuk tetap tersambung. Salah 5 kali → dikunci 1 menit. Pencegah iseng, bukan enkripsi. |
+| Tentang | Pengaturan → Tentang Vibe Coding Viewer: versi, teknologi, keamanan data, lisensi, pembuat. |
 | Berhenti otomatis | Setelah 5/10/15/30 menit tanpa permintaan (atur di Pengaturan). |
 
 ---
@@ -114,12 +132,41 @@ Centang satu per satu di HP Bapak.
 - [ ] Ganti port (mis. 8090) → proyek berikutnya memakai port baru.
 - [ ] Kosongkan daftar → daftar kosong, file asli tetap ada.
 
+**H. Data per proyek (baru 1.1)**
+- [ ] Mainkan game proyek A sampai ada skor/progres, lalu buka proyek B → data A tidak muncul di B.
+- [ ] Buka lagi proyek A → skor/progres A masih ada.
+
+**I. Pilih halaman (baru 1.1)**
+- [ ] Import ZIP berisi beberapa HTML → lembar Pilih halaman muncul, index.html terpilih, dikelompokkan per folder.
+- [ ] Pilih halaman lain → terbuka benar, gambar & CSS tampil (juga untuk halaman di subfolder).
+- [ ] Ketuk proyek itu lagi dari daftar → halaman terakhir dipilih yang terbuka.
+- [ ] Tekan lama → Pilih halaman… → ganti halaman.
+- [ ] Pengaturan "Selalu index.html" → ketuk proyek selalu membuka index.html.
+- [ ] ZIP dengan lebih dari 8 halaman → kotak pencarian muncul.
+
+**J. PIN berbagi (baru 1.1)**
+- [ ] Layar QR → nyalakan "Kunci dengan PIN" → PIN besar tampil.
+- [ ] HP siswa scan QR → langsung masuk tanpa ketik PIN.
+- [ ] Tombol Salin → buka alamat di HP lain → diminta PIN; PIN benar → masuk.
+- [ ] PIN salah 5 kali → dikunci 1 menit.
+- [ ] Ganti PIN → QR lama tidak bisa masuk, siswa yang sudah masuk tetap jalan.
+- [ ] HP guru sendiri (Chrome / peramban internal) tidak pernah diminta PIN.
+
+**K. Tentang & tampilan (baru 1.1)**
+- [ ] Pengaturan → Tentang → halaman penuh dengan panah kembali.
+- [ ] Nama "Toto Gutomo, S.Pd, Gr, M.Pd, CPSS" dan "Guru SMA Negeri 3 Maliku" tampil.
+- [ ] Tagline "Ngoding Pakai Vibe, Ngajar Pakai Hati" muat satu baris dengan lencana </> (juga di HP layar kecil).
+- [ ] Tombol totogutomo.com membuka situs. Tombol pustaka pihak ketiga menampilkan daftar lisensi.
+- [ ] Footer "Vibe Coding Viewer ©2026 | totogutomo.com" tampil di beranda dan Tentang.
+- [ ] Huruf merek (Space Grotesk / JetBrains Mono) tampil.
+
 ---
 
 ## 5. Catatan teknis
 
-- Proyek yang berbeda dibuka di alamat yang sama (`localhost:8080`), sehingga data `localStorage`
-  milik satu proyek bisa terbaca oleh proyek lain. Jika ini mengganggu, gunakan port berbeda per proyek.
+- Data `localStorage` tiap proyek terpisah karena tiap proyek punya port sendiri. Menghapus data
+  peramban (Chrome) ikut menghapus data semua proyek di HP itu. Mengganti port dasar di Pengaturan
+  juga membuat data lama tidak terbaca (alamatnya berubah).
 - Hotspot HP umumnya hanya menerima sekitar 8–10 perangkat. Untuk satu kelas penuh gunakan router WiFi.
 - Beberapa merek HP (Xiaomi, Oppo, Vivo) punya penghemat baterai agresif. Jika server sering mati,
   izinkan VcV berjalan di latar belakang lewat pengaturan baterai HP.
