@@ -21,7 +21,8 @@ jobs:
       - name: Bangun APK
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee /tmp/build.log
       - name: Simpan APK ke cabang apk
         run: |
           VER=$(grep versionName app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
@@ -34,6 +35,16 @@ jobs:
           echo "APK hasil build otomatis dari ${GITHUB_SHA}" > README.md
           git add . && git commit -q -m "APK VcV $VER (${GITHUB_SHA::7})"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" apk
+      - name: Simpan catatan error ke cabang build-log
+        if: failure()
+        run: |
+          mkdir -p /tmp/log && cp /tmp/build.log /tmp/log/build.log || echo "tidak ada log" > /tmp/log/build.log
+          cd /tmp/log
+          git init -q -b build-log
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add . && git commit -q -m "Log gagal ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" build-log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
