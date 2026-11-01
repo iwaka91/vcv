@@ -1,12 +1,12 @@
 # Vibe Coding Viewer (VcV)
 
 Aplikasi Android untuk membuka hasil vibe coding (ZIP / HTML / folder) di Chrome,
-dengan daftar 10 proyek terbaru dan fitur bagikan ke HP siswa lewat QR.
+dengan daftar 10 proyek terbaru, proyek yang bisa disematkan (pin, maks 10), dan fitur bagikan ke HP siswa lewat QR.
 
 - Paket: `id.tg.vcv` · Android 8.0+ · Kotlin + Jetpack Compose · tema gelap
 - Server lokal: NanoHTTPD (gzip, file di RAM, cache ETag, antrean 24 koneksi)
 - QR: ZXing
-- Versi saat ini: **1.1** (uji coba). Setelah lolos semua uji → 2.0 stable.
+- Versi saat ini: **1.2** (uji coba). Setelah lolos semua uji → 2.0 stable.
 
 ---
 
@@ -18,6 +18,8 @@ APK jadi ada di cabang **`apk`** repo ini (file `VcV-<versi>.apk`).
 **Pindah dari 1.0 ke 1.1:** hapus dulu VcV 1.0 dari HP, lalu pasang 1.1.
 Tanda tangan APK berbeda dari versi Android Studio, jadi tidak bisa ditimpa langsung.
 Daftar 10 terbaru akan kosong lagi.
+
+**Pindah dari 1.1 ke 1.2:** langsung pasang di atas 1.1 (tanda tangan sama). Daftar dan pengaturan tetap ada.
 
 > APK uji ditandatangani kunci `signing/vcv-test.jks` (khusus uji, terbuka di repo publik).
 > Untuk rilis Play Store wajib memakai kunci rilis baru yang dirahasiakan.
@@ -40,14 +42,14 @@ Daftar 10 terbaru akan kosong lagi.
 
 ```
 app/src/main/java/id/tg/vcv/
-├─ VcvApp.kt                 Inisialisasi, kanal notifikasi, hapus salinan WA saat proyek ditutup
+├─ VcvApp.kt                 Inisialisasi, kanal notifikasi, hapus salinan file sekali buka saat proyek ditutup
 ├─ MainActivity.kt           Satu-satunya layar; menangani intent Bagikan/Buka dengan/pintasan/notifikasi
 ├─ data/
-│  ├─ ProjectRecord.kt       Data satu proyek di daftar
-│  ├─ ProjectStore.kt        Daftar 10 terbaru (SharedPreferences + JSON)
+│  ├─ ProjectRecord.kt       Data satu proyek di daftar (termasuk status sematan)
+│  ├─ ProjectStore.kt        Daftar 10 terbaru + proyek disematkan, maks 10 pin (SharedPreferences + JSON)
 │  ├─ Settings.kt            Peramban bawaan, halaman default, waktu berhenti otomatis, port, pilihan PIN
 │  ├─ ProjectInspector.kt    Cari index.html / daftar semua halaman, cek file pendamping, cek kesiapan offline
-│  ├─ ProjectPreparer.kt     Baca ulang file asli → ekstrak ke cache/serve/
+│  ├─ ProjectPreparer.kt     Baca ulang file asli → ekstrak ke cache/serve/; cek file asli masih ada
 │  └─ UriInfo.kt             Nama & lokasi file yang ramah dibaca
 ├─ server/
 │  ├─ VcvHttpServer.kt       Server statis (gzip, RAM, ETag, Range, antrean terbatas)
@@ -55,8 +57,8 @@ app/src/main/java/id/tg/vcv/
 │  ├─ PinGate.kt             Kunci PIN berbagi (PIN acak, tanda masuk, batas salah)
 │  ├─ VcvServerService.kt    Foreground service + notifikasi + berhenti otomatis + wake/WiFi lock
 │  └─ NetUtil.kt             Alamat IP WiFi/hotspot
-└─ ui/                       Tampilan Compose (beranda, sheet, dialog, QR, peramban internal, pengaturan,
-                             Tentang, lembar Pilih halaman)
+└─ ui/                       Tampilan Compose (beranda dengan bagian Disematkan & Terbaru, sheet, dialog, QR,
+                             peramban internal, pengaturan, Tentang, lembar Pilih halaman)
 ```
 
 ---
@@ -65,9 +67,12 @@ app/src/main/java/id/tg/vcv/
 
 | Hal | Perilaku |
 |---|---|
-| Daftar terbaru | Maks. 10. Proyek ke-11 masuk → yang terlama keluar dari daftar (file asli tidak dihapus). |
-| Penyimpanan | Hanya alamat file asli. File dibaca ulang setiap kali dibuka. |
-| File dari WhatsApp | Disalin sementara. Dihapus saat proyek ditutup (server berhenti / buka proyek lain). Tetap tampil di daftar dengan keterangan *Sekali buka*. Tombol **Simpan Proyek** (menu tekan lama & notifikasi) menyimpannya permanen. |
+| Daftar terbaru | Maks. 10 (log buka terakhir). Beranda menampilkan 5 dulu; tombol **Selengkapnya** membuka ke 10 di layar yang sama. Proyek ke-11 masuk → yang terlama keluar dari daftar (file asli tidak dihapus), kecuali yang disematkan. |
+| Sematkan (pin) | Maks. 10. Menu tekan lama / titik tiga → **Sematkan** / **Lepas sematan**. Bagian **Disematkan** tampil di atas Terbaru (urutan sesuai waktu disematkan), tidak pernah tertindih. Proyek yang disematkan tetap ikut tampil di Terbaru sebagai log buka terakhir (bertanda pin). Pin ke-11 ditolak ("Sematan penuh"). Melepas sematan proyek yang sudah di luar 10 terbaru → proyek keluar dari daftar (file asli tidak dihapus). |
+| File sekali buka + pin | File dari aplikasi lain (WhatsApp dll) hanya salinan sementara, jadi saat disematkan muncul keterangan **File sekali buka** dengan tawaran **Buat salinan**. Bila disetujui: pilih lokasi simpan, file jadi proyek permanen dan langsung disematkan. Salinan sudah terhapus → muncul pesan "Salinan sudah dihapus". |
+| File asli hilang | Proyek yang file/foldernya hilang, dipindah, atau diganti nama tampil **abu-abu** dengan keterangan "⚠ File asli hilang atau dipindah" (dicek setiap beranda tampil). Ketuk → dialog "File asli tidak ditemukan. Hapus dari daftar?". Berlaku juga untuk proyek yang disematkan. |
+| Penyimpanan | Hanya alamat file asli. File dibaca ulang setiap kali dibuka. Kosongkan daftar (Pengaturan) juga menghapus sematan. |
+| File dari aplikasi lain (WhatsApp dll) | Disalin sementara. Dihapus saat proyek ditutup (server berhenti / buka proyek lain). Tetap tampil di daftar dengan keterangan *Sekali buka*. Tombol **Simpan Proyek** (menu tekan lama & notifikasi) menyimpannya permanen. |
 | Tidak ada index.html | Ditawarkan file HTML lain (mis. game.html). |
 | Tidak ada HTML sama sekali | Pesan "File HTML tidak ditemukan", kembali ke beranda, tidak disimpan. |
 | Nama sama | Pilihan Timpa / Abaikan. |
@@ -103,10 +108,10 @@ Centang satu per satu di HP Bapak.
 - [ ] Buka ulang proyek dari daftar → naik ke paling atas.
 - [ ] Pindahkan/hapus file asli lalu buka dari daftar → "File asli tidak ditemukan. Hapus dari daftar?".
 
-**C. WhatsApp**
+**C. File dari aplikasi lain (WhatsApp dll)**
 - [ ] Di WhatsApp, tekan file ZIP → Bagikan → VcV → proyek terbuka, lencana WA.
 - [ ] Hentikan server dari notifikasi → proyek tetap di daftar dengan keterangan "Sekali buka".
-- [ ] Ketuk proyek WA itu → pesan "Salinan sudah dihapus…".
+- [ ] Ketuk proyek itu → pesan "Salinan sudah dihapus… Buka aplikasi asalnya lalu bagikan ulang…" (tanpa kata WhatsApp; keterangan di daftar "bagikan ulang dari aplikasi asal").
 - [ ] Bagikan ulang dari WA → saat masih terbuka, tekan **Simpan Proyek** → pilih folder Download → lencana berubah jadi ZIP dan bisa dibuka kapan saja.
 
 **D. Menu tekan lama**
@@ -162,11 +167,26 @@ Centang satu per satu di HP Bapak.
 
 ---
 
+**L. Sematkan / pin (baru 1.2)**
+- [ ] Tekan lama proyek → Sematkan → muncul bagian **Disematkan** di atas Terbaru, proyek tetap tampil juga di Terbaru dengan ikon pin.
+- [ ] Buka 11+ proyek lain → proyek yang disematkan tetap ada di Disematkan, tidak tertindih.
+- [ ] Sematkan 10 proyek lalu coba yang ke-11 → ditolak ("Sematan penuh").
+- [ ] Lepas sematan → bagian Disematkan berkurang; bila tak ada pin lagi, bagian itu hilang.
+- [ ] Terbaru menampilkan 5 proyek; tombol **Selengkapnya** menampilkan sampai 10 di layar yang sama; **Tampilkan lebih sedikit** mengembalikan.
+- [ ] Proyek sekali buka (dari WhatsApp/aplikasi lain) → Sematkan → muncul "File sekali buka" + tawaran **Buat salinan**; setuju → pilih lokasi → proyek tersimpan permanen dan langsung disematkan.
+- [ ] Proyek sekali buka yang salinannya sudah terhapus → Sematkan → pesan "Salinan sudah dihapus".
+- [ ] Pindahkan/hapus file asli proyek (disematkan atau tidak) → di beranda jadi abu-abu dengan "⚠ File asli hilang atau dipindah"; ketuk → dialog hapus dari daftar.
+- [ ] Kembalikan file ke tempat semula → setelah buka beranda lagi, kembali normal (tidak abu-abu).
+
+---
+
 ## 5. Catatan teknis
 
 - Data `localStorage` tiap proyek terpisah karena tiap proyek punya port sendiri. Menghapus data
   peramban (Chrome) ikut menghapus data semua proyek di HP itu. Mengganti port dasar di Pengaturan
   juga membuat data lama tidak terbaca (alamatnya berubah).
+- Untuk IFP yang sulit scan QR: cukup ketik alamat tanpa nama file, mis. `http://192.168.1.159:8104`.
+  Server otomatis membuka halaman utama proyek (halaman terakhir dipilih / index.html). Angka port tidak boleh dihilangkan.
 - Hotspot HP umumnya hanya menerima sekitar 8–10 perangkat. Untuk satu kelas penuh gunakan router WiFi.
 - Beberapa merek HP (Xiaomi, Oppo, Vivo) punya penghemat baterai agresif. Jika server sering mati,
   izinkan VcV berjalan di latar belakang lewat pengaturan baterai HP.
