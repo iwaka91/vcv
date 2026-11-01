@@ -129,6 +129,12 @@ class MainActivity : ComponentActivity() {
         val server by vm.server.collectAsStateWithLifecycle()
         val settings by vm.settings.collectAsStateWithLifecycle()
         val pagePick by vm.pagePick.collectAsStateWithLifecycle()
+        val missing by vm.missing.collectAsStateWithLifecycle()
+
+        // Periksa file asli setiap kali beranda tampil atau daftar berubah.
+        LaunchedEffect(projects, screen) {
+            if (screen == Screen.HOME) vm.refreshMissing()
+        }
 
         // ---- pemilih file
         val pickZip = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { vm.onPicked(Kind.ZIP, it) }
@@ -162,6 +168,7 @@ class MainActivity : ComponentActivity() {
             when (screen) {
                 Screen.HOME -> HomeScreen(
                     projects = projects,
+                    missing = missing,
                     onOpen = { vm.openProject(it, Target.DEFAULT) },
                     onMenu = { vm.showMenu(it) },
                     onImport = { vm.showImportSheet(true) },
@@ -222,6 +229,7 @@ class MainActivity : ComponentActivity() {
                     onRename = { vm.showMenu(null); vm.showDialog(DialogState.Rename(r)) },
                     onDelete = { vm.remove(r) },
                     onSave = { vm.startSave(r) },
+                    onPin = { vm.togglePin(r) },
                     onPickPage = { vm.pickPage(r) },
                 )
             }

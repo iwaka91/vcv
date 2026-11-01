@@ -9,7 +9,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import java.io.File
 
-/** Daftar maksimal 10 proyek terbaru, disimpan di SharedPreferences sebagai JSON. */
+enum class PinResult { OK, FULL, MISSING }
+
+/**
+ * Daftar proyek di SharedPreferences (JSON): 10 proyek terbaru + proyek yang disematkan (maks 10 pin).
+ * Proyek yang disematkan tidak pernah tertindih, walau sudah keluar dari 10 terbaru.
+ */
 class ProjectStore(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("vcv_projects", Context.MODE_PRIVATE)
@@ -21,14 +26,43 @@ class ProjectStore(private val context: Context) {
     fun findByName(name: String): ProjectRecord? =
         _items.value.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }
 
-    /** Tambah/ganti proyek, letakkan paling atas, buang yang lebih dari 10. */
+    /** Pisahkan: yang dipertahankan (10 terbaru + semua pin) dan yang keluar dari daftar. */
+    private fun split(all: List<ProjectRecord>): Pair<List<ProjectRecord>, List<ProjectRecord>> {
+        val sorted = all.sortedByDescending { it.lastOpened }
+        val recentIds = sorted.take(MAX).map { it.id }.toSet()
+        val kept = sorted.filter { it.pinned || it.id in recentIds }
+        val dropped = sorted.filterNot { it.pinned || it.id in recentIds }
+        return kept to dropped
+    }
+
+    /** Tambah/ganti proyek, letakkan paling atas, buang yang di luar 10 terbaru dan tidak disematkan. */
     @Synchronized
     fun upsert(record: ProjectRecord) {
+        val existing = _items.value.firstOrNull { it.id == record.id }
         val others = _items.value.filterNot { it.id == record.id }
-        val withSlot = if (record.slot >= 0) record else record.copy(slot = nextSlot(others))
-        val all = (listOf(withSlot) + others).sortedByDescending { it.lastOpened }
-        val kept = all.take(MAX)
-        val dropped = all.drop(MAX)
+        val base = if (existing != null) record.copy(pinned = existing.pinned, pinnedAt = existing.pinnedAt) else record
+        val withSlot = if (base.slot >= 0) base else base.copy(slot = nextSlot(others))
+        val (kept, dropped) = split(listOf(withSlot) + others)
+        save(kept)
+        dropped.forEach { cleanup(it, kept) }
+    }
+
+    /** Sematkan proyek. Gagal (FULL) bila sudah ada 10 pin. */
+    @Synchronized
+    fun pin(id: String): PinResult {
+        val r = get(id) ?: return PinResult.MISSING
+        if (r.pinned) return PinResult.OK
+        if (_items.value.count { it.pinned } >= MAX_PINS) return PinResult.FULL
+        update(r.copy(pinned = true, pinnedAt = System.currentTimeMillis()))
+        return PinResult.OK
+    }
+
+    /** Lepas sematan. Proyek yang sudah di luar 10 terbaru ikut keluar dari daftar (file asli tidak dihapus). */
+    @Synchronized
+    fun unpin(id: String) {
+        if (get(id) == null) return
+        val all = _items.value.map { if (it.id == id) it.copy(pinned = false, pinnedAt = 0L) else it }
+        val (kept, dropped) = split(all)
         save(kept)
         dropped.forEach { cleanup(it, kept) }
     }
@@ -37,7 +71,10 @@ class ProjectStore(private val context: Context) {
     @Synchronized
     fun replace(oldId: String, newRecord: ProjectRecord): ProjectRecord {
         val old = get(oldId)
-        val merged = newRecord.copy(id = oldId, slot = old?.slot ?: -1)
+        val merged = newRecord.copy(
+            id = oldId, slot = old?.slot ?: -1,
+            pinned = old?.pinned ?: false, pinnedAt = old?.pinnedAt ?: 0L,
+        )
         upsert(merged)
         if (old != null) {
             if (old.uri.isNotEmpty() && old.uri != merged.uri && _items.value.none { it.uri == old.uri }) {
@@ -117,7 +154,7 @@ class ProjectStore(private val context: Context) {
         val list = runCatching {
             val arr = JSONArray(raw)
             (0 until arr.length()).map { ProjectRecord.fromJson(arr.getJSONObject(it)) }
-        }.getOrDefault(emptyList()).sortedByDescending { it.lastOpened }.take(MAX)
+        }.getOrDefault(emptyList()).let { split(it).first }
         // Proyek dari versi 1.0 belum punya slot: beri slot, proyek paling baru tetap slot 0 (port lama).
         if (list.none { it.slot < 0 }) return list
         val fixed = mutableListOf<ProjectRecord>()
@@ -154,6 +191,7 @@ class ProjectStore(private val context: Context) {
 
     companion object {
         const val MAX = 10
+        const val MAX_PINS = 10
         private const val KEY = "recent"
         private const val KEY_SLOT = "next_slot"
         const val SLOTS = 100

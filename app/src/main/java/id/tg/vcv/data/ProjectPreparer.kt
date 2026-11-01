@@ -106,6 +106,29 @@ class ProjectPreparer(private val context: Context) {
         )
     }
 
+    /**
+     * Cek ringan: apakah file/folder asli masih ada? (untuk menandai abu-abu di beranda).
+     * Hanya menjawab "hilang" bila yakin; kesalahan lain dianggap masih ada.
+     */
+    fun isSourceMissing(record: ProjectRecord): Boolean {
+        if (record.kind == Kind.SHARED || record.uri.isEmpty()) return false
+        return try {
+            if (record.kind == Kind.FOLDER) {
+                val root = DocumentFile.fromTreeUri(context, Uri.parse(record.uri))
+                root == null || !root.exists()
+            } else {
+                val s = context.contentResolver.openInputStream(Uri.parse(record.uri))
+                if (s == null) true else { s.close(); false }
+            }
+        } catch (e: FileNotFoundException) {
+            true
+        } catch (e: SecurityException) {
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /** Daftar semua halaman HTML di proyek (untuk "Pilih halaman…"). Null = sumber tidak bisa dibaca. */
     fun listPages(record: ProjectRecord): List<String>? = try {
         when {

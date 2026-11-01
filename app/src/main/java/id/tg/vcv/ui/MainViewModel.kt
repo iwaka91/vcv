@@ -16,9 +16,11 @@ import id.tg.vcv.data.BrowserChoice
 import id.tg.vcv.data.Inspection
 import id.tg.vcv.data.Kind
 import id.tg.vcv.data.PageDefault
+import id.tg.vcv.data.PinResult
 import id.tg.vcv.data.PrepareResult
 import id.tg.vcv.data.ProjectInspector
 import id.tg.vcv.data.ProjectRecord
+import id.tg.vcv.data.ProjectStore
 import id.tg.vcv.data.UriInfo
 import id.tg.vcv.server.ServerController
 import id.tg.vcv.server.VcvServerService
@@ -65,6 +67,7 @@ sealed class DialogState {
     data class SuggestFolder(val pending: PendingImport) : DialogState()
     data class SourceMissing(val record: ProjectRecord) : DialogState()
     data class SharedGone(val record: ProjectRecord) : DialogState()
+    data class PinNeedsCopy(val record: ProjectRecord) : DialogState()
     data class StopSharing(val current: ProjectRecord, val next: ProjectRecord, val target: Target) : DialogState()
     data class Rename(val record: ProjectRecord) : DialogState()
     data object ConfirmClear : DialogState()
@@ -110,11 +113,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _importSheet = MutableStateFlow(false)
     val importSheet: StateFlow<Boolean> = _importSheet.asStateFlow()
 
+    /** Id proyek yang file/folder aslinya hilang, dipindah, atau dihapus (ditampilkan abu-abu). */
+    private val _missing = MutableStateFlow<Set<String>>(emptySet())
+    val missing: StateFlow<Set<String>> = _missing.asStateFlow()
+
     private val _events = Channel<UiEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
     /** Proyek WA yang sedang menunggu lokasi simpan. */
     private var savingRecordId: String? = null
+
+    /** Setelah disimpan permanen, langsung disematkan (dari tawaran "Buat salinan"). */
+    private var pinAfterSave = false
 
     // ------------------------------------------------------------------ navigasi & sheet
 
@@ -482,6 +492,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startSave(record: ProjectRecord?) {
         _menuFor.value = null
+        pinAfterSave = false
         val r = record?.let { store.get(it.id) } ?: ServerController.state.value.project?.record?.let { store.get(it.id) }
         if (r == null || r.kind != Kind.SHARED || r.isSharedCopyGone) {
             toast("Proyek ini sudah tersimpan atau salinannya sudah dihapus")
@@ -494,6 +505,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun onSaveTarget(uri: Uri?) {
         val id = savingRecordId ?: return
         savingRecordId = null
+        val wantPin = pinAfterSave
+        pinAfterSave = false
         if (uri == null) return
         viewModelScope.launch {
             val ok = withContext(Dispatchers.IO) {
@@ -514,11 +527,59 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     File(r.copyPath).delete()
                     store.update(saved)
-                    ServerController.updateRecord(saved)
-                    saved.sourceLabel
+                    val pinned = wantPin && store.pin(saved.id) == PinResult.OK
+                    ServerController.updateRecord(store.get(saved.id) ?: saved)
+                    Pair(saved.sourceLabel, pinned)
                 }.getOrNull()
             }
-            if (ok != null) toast("Proyek disimpan: $ok") else toast("Gagal menyimpan proyek")
+            when {
+                ok == null -> toast("Gagal menyimpan proyek")
+                ok.second -> toast("Salinan disimpan dan disematkan: ${ok.first}")
+                wantPin -> toast("Salinan disimpan: ${ok.first}. Sematan penuh (maksimal 10)")
+                else -> toast("Proyek disimpan: ${ok.first}")
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ SEMATKAN (pin)
+
+    /** Dari menu proyek: sematkan atau lepas sematan. */
+    fun togglePin(r: ProjectRecord) {
+        _menuFor.value = null
+        val cur = store.get(r.id) ?: return
+        if (cur.pinned) {
+            store.unpin(cur.id)
+            toast("Sematan dilepas")
+            return
+        }
+        if (store.items.value.count { it.pinned } >= ProjectStore.MAX_PINS) {
+            toast("Sematan penuh (maksimal ${ProjectStore.MAX_PINS}). Lepas satu dulu")
+            return
+        }
+        if (cur.kind == Kind.SHARED) {
+            _dialog.value = if (cur.isSharedCopyGone) DialogState.SharedGone(cur) else DialogState.PinNeedsCopy(cur)
+            return
+        }
+        store.pin(cur.id)
+        toast("Disematkan")
+    }
+
+    /** Jawaban dialog file sekali buka: buat salinan permanen lalu sematkan. */
+    fun answerPinCopy(r: ProjectRecord, make: Boolean) {
+        _dialog.value = null
+        if (!make) return
+        startSave(r)
+        if (savingRecordId == r.id) pinAfterSave = true
+    }
+
+    /** Periksa file asli semua proyek di daftar; yang hilang ditandai abu-abu. */
+    fun refreshMissing() {
+        val list = store.items.value
+        viewModelScope.launch {
+            val ids = withContext(Dispatchers.IO) {
+                list.filter { preparer.isSourceMissing(it) }.map { it.id }.toSet()
+            }
+            _missing.value = ids
         }
     }
 

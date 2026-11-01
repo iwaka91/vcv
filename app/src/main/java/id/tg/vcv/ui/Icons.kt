@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Ikon garis sederhana (digambar sendiri, tanpa pustaka ikon tambahan). Koordinat dalam grid 24×24. */
-enum class Ic { SETTINGS, MORE, PLUS, BACK, CLOSE, RELOAD, EXTERNAL, WINDOW, QR, HOME, PENCIL, TRASH, SAVE, COPY, PAGES }
+enum class Ic { SETTINGS, MORE, PLUS, BACK, CLOSE, RELOAD, EXTERNAL, WINDOW, QR, HOME, PENCIL, TRASH, SAVE, COPY, PAGES, PIN }
 
 @Composable
 fun VIcon(icon: Ic, color: Color, size: Dp = 24.dp, modifier: Modifier = Modifier) {
@@ -61,6 +61,10 @@ fun VIcon(icon: Ic, color: Color, size: Dp = 24.dp, modifier: Modifier = Modifie
             Ic.TRASH -> { line(4f, 7f, 20f, 7f); line(9f, 7f, 9f, 4f, 15f, 4f, 15f, 7f); line(6f, 7f, 7f, 20f, 17f, 20f, 18f, 7f) }
             Ic.SAVE -> { line(12f, 4f, 12f, 15f); line(7f, 10f, 12f, 15f, 17f, 10f); line(5f, 20f, 19f, 20f) }
             Ic.PAGES -> { rect(7f, 3f, 13f, 15f); line(4f, 7f, 4f, 21f, 16f, 21f); line(10f, 8f, 17f, 8f); line(10f, 12f, 17f, 12f) }
+            Ic.PIN -> {
+                line(9f, 3f, 15f, 3f); line(10f, 3f, 10f, 10f, 6.5f, 14f, 17.5f, 14f, 14f, 10f, 14f, 3f)
+                line(12f, 14f, 12f, 21f)
+            }
             Ic.COPY -> { rect(8f, 8f, 12f, 12f); line(16f, 8f, 16f, 4f, 4f, 4f, 4f, 16f, 8f, 16f) }
         }
     }

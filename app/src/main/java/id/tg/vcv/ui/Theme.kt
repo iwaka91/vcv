@@ -153,14 +153,14 @@ fun Sticker(label: String, bg: Color, angle: Float, modifier: Modifier = Modifie
 
 /** Kotak lencana jenis proyek (ZIP / HTML / DIR / WA). */
 @Composable
-fun KindBadge(r: ProjectRecord, size: Dp = 48.dp) {
+fun KindBadge(r: ProjectRecord, size: Dp = 48.dp, missing: Boolean = false) {
     val (label, color) = when (r.kind) {
         Kind.ZIP -> "ZIP" to Vc.TagZip
         Kind.HTML -> "HTML" to Vc.TagHtml
         Kind.FOLDER -> "DIR" to Vc.TagDir
         Kind.SHARED -> (r.sharedTag.ifEmpty { "APP" }) to Vc.TagShared
     }
-    val faded = r.isSharedCopyGone
+    val faded = r.isSharedCopyGone || missing
     Box(
         Modifier
             .size(size)

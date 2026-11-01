@@ -31,6 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +51,7 @@ import id.tg.vcv.server.ServerState
 @Composable
 fun HomeScreen(
     projects: List<ProjectRecord>,
+    missing: Set<String>,
     onOpen: (ProjectRecord) -> Unit,
     onMenu: (ProjectRecord) -> Unit,
     onImport: () -> Unit,
@@ -59,21 +64,42 @@ fun HomeScreen(
             if (projects.isEmpty()) {
                 EmptyState(onPick)
             } else {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    Text("Terbaru", style = vcText(18.sp, bold = true))
-                    Text("${projects.size} dari ${ProjectStore.MAX}", style = vcText(13.sp, color = Vc.Muted))
-                }
+                // Disematkan: sesuai urutan disematkan. Terbaru: 10 terakhir dibuka (pin tetap ikut sebagai catatan buka).
+                val pinned = projects.filter { it.pinned }.sortedBy { it.pinnedAt }
+                val recent = projects.sortedByDescending { it.lastOpened }.take(ProjectStore.MAX)
+                var expanded by remember { mutableStateOf(false) }
+                val shown = if (expanded) recent else recent.take(RECENT_PREVIEW)
                 LazyColumn(
                     contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 140.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(projects, key = { it.id }) { r ->
-                        ProjectRow(r, onClick = { onOpen(r) }, onMenu = { onMenu(r) })
+                    if (pinned.isNotEmpty()) {
+                        item(key = "head_pin") {
+                            SectionHeader("Disematkan", "${pinned.size} dari ${ProjectStore.MAX_PINS}")
+                        }
+                        items(pinned, key = { "pin_" + it.id }) { r ->
+                            ProjectRow(r, r.id in missing, showPin = false, onClick = { onOpen(r) }, onMenu = { onMenu(r) })
+                        }
+                    }
+                    item(key = "head_recent") {
+                        SectionHeader("Terbaru", "${recent.size} dari ${ProjectStore.MAX}")
+                    }
+                    items(shown, key = { "rec_" + it.id }) { r ->
+                        ProjectRow(r, r.id in missing, showPin = r.pinned, onClick = { onOpen(r) }, onMenu = { onMenu(r) })
+                    }
+                    if (recent.size > RECENT_PREVIEW) {
+                        item(key = "more_recent") {
+                            TextButton(
+                                onClick = { expanded = !expanded },
+                                modifier = Modifier.fillMaxWidth().height(48.dp)
+                            ) {
+                                Text(
+                                    if (expanded) "Tampilkan lebih sedikit" else "Selengkapnya (${recent.size - RECENT_PREVIEW} lagi)",
+                                    style = vcText(15.sp, bold = true, color = Vc.Accent)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -106,6 +132,21 @@ fun HomeScreen(
     }
 }
 
+/** Jumlah proyek Terbaru yang tampil sebelum menekan "Selengkapnya". */
+private const val RECENT_PREVIEW = 5
+
+@Composable
+private fun SectionHeader(title: String, count: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Text(title, style = vcText(18.sp, bold = true))
+        Text(count, style = vcText(13.sp, color = Vc.Muted))
+    }
+}
+
 @Composable
 private fun HomeHeader(onSettings: () -> Unit) {
     Row(
@@ -123,9 +164,13 @@ private fun HomeHeader(onSettings: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ProjectRow(r: ProjectRecord, onClick: () -> Unit, onMenu: () -> Unit) {
-    val sub = if (r.isSharedCopyGone) "Sekali buka · bagikan ulang dari WhatsApp"
-    else "${r.sourceLabel} · ${relativeTime(r.lastOpened)}"
+private fun ProjectRow(r: ProjectRecord, missing: Boolean, showPin: Boolean, onClick: () -> Unit, onMenu: () -> Unit) {
+    val gray = r.isSharedCopyGone || missing
+    val sub = when {
+        r.isSharedCopyGone -> "Sekali buka · bagikan ulang dari aplikasi asal"
+        missing -> "⚠ File asli hilang atau dipindah"
+        else -> "${r.sourceLabel} · ${relativeTime(r.lastOpened)}"
+    }
     Row(
         Modifier
             .fillMaxWidth()
@@ -136,15 +181,24 @@ private fun ProjectRow(r: ProjectRecord, onClick: () -> Unit, onMenu: () -> Unit
             .padding(start = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        KindBadge(r)
+        KindBadge(r, missing = missing)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showPin) {
+                    VIcon(Ic.PIN, if (gray) Vc.Muted else Vc.Accent, 14.dp)
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    r.name, style = vcText(16.sp, color = if (gray) Vc.Muted else Vc.Text),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.height(4.dp))
             Text(
-                r.name, style = vcText(16.sp, color = if (r.isSharedCopyGone) Vc.Muted else Vc.Text),
+                sub, style = vcText(13.sp, color = if (missing && !r.isSharedCopyGone) Vc.Danger else Vc.Muted),
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.height(4.dp))
-            Text(sub, style = vcText(13.sp, color = Vc.Muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         IconButton(onClick = onMenu, modifier = Modifier.size(48.dp)) {
             VIcon(Ic.MORE, Vc.Muted, 20.dp)
@@ -266,6 +320,7 @@ fun ProjectMenuSheet(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onSave: () -> Unit,
+    onPin: () -> Unit,
     onPickPage: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -282,7 +337,7 @@ fun ProjectMenuSheet(
                     Text(r.name, style = vcText(17.sp, bold = true), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        if (r.isSharedCopyGone) "Sekali buka · bagikan ulang dari WhatsApp" else r.sourceLabel,
+                        if (r.isSharedCopyGone) "Sekali buka · bagikan ulang dari aplikasi asal" else r.sourceLabel,
                         style = vcText(13.sp, color = Vc.Muted), maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -292,6 +347,7 @@ fun ProjectMenuSheet(
 
             val canSave = r.kind == Kind.SHARED && !r.isSharedCopyGone
             if (canSave) MenuItem(Ic.SAVE, "Simpan Proyek", Vc.Yellow, bold = true, onClick = onSave)
+            MenuItem(Ic.PIN, if (r.pinned) "Lepas sematan" else "Sematkan", Vc.Text, onClick = onPin)
             MenuItem(Ic.EXTERNAL, "Buka di Chrome", Vc.Accent, bold = true, onClick = onChrome)
             MenuItem(Ic.WINDOW, "Buka di peramban internal", Vc.Text, onClick = onInternal)
             MenuItem(Ic.QR, "Bagikan ke HP siswa (QR)", Vc.Text, onClick = onQr)

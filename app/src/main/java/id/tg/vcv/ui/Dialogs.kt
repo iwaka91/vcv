@@ -75,10 +75,18 @@ fun VcvDialogs(d: DialogState, vm: MainViewModel) {
         is DialogState.SharedGone -> VDialog(
             mark = "i", tint = Color(0xFF1E2A22), ink = Vc.TagShared,
             title = "Salinan sudah dihapus",
-            body = "Salinan sudah dihapus untuk menghemat memori. Buka WhatsApp lalu bagikan ulang file ini ke VcV.",
+            body = "Salinan sudah dihapus untuk menghemat memori. Buka aplikasi asalnya lalu bagikan ulang file ini ke VcV.",
             primary = "Oke", onPrimary = { vm.dismissDialog() },
             secondary = "Hapus dari daftar", onSecondary = { vm.dismissDialog(); vm.remove(d.record) },
             onDismiss = { vm.dismissDialog() }
+        )
+        is DialogState.PinNeedsCopy -> VDialog(
+            mark = "i", tint = Color(0xFF1E2A22), ink = Vc.TagShared,
+            title = "File sekali buka",
+            body = "${d.record.name} hanya berupa salinan sementara yang terhapus saat proyek ditutup, jadi belum bisa disematkan. Buat salinan permanen lalu sematkan?",
+            primary = "Buat salinan", onPrimary = { vm.answerPinCopy(d.record, true) },
+            secondary = "Batal", onSecondary = { vm.answerPinCopy(d.record, false) },
+            onDismiss = { vm.answerPinCopy(d.record, false) }
         )
         is DialogState.StopSharing -> VDialog(
             mark = "!", tint = Color(0xFF3A2A12), ink = Vc.Yellow,
@@ -92,7 +100,7 @@ fun VcvDialogs(d: DialogState, vm: MainViewModel) {
         DialogState.ConfirmClear -> VDialog(
             mark = "×", tint = Color(0xFF3A1E1A), ink = Vc.Danger,
             title = "Kosongkan daftar?",
-            body = "Semua proyek hilang dari daftar terbaru. File asli di HP tidak ikut terhapus.",
+            body = "Semua proyek hilang dari daftar, termasuk yang disematkan. File asli di HP tidak ikut terhapus.",
             primary = "Kosongkan", primaryColor = Vc.Danger, onPrimary = { vm.clearAll() },
             secondary = "Batal", onSecondary = { vm.dismissDialog() },
             onDismiss = { vm.dismissDialog() }

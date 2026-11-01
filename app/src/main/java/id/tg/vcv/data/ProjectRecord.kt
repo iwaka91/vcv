@@ -26,6 +26,9 @@ data class ProjectRecord(
     val copyDeleted: Boolean = false,
     /** Nomor urut port proyek (port dasar + slot). Port berbeda = data peramban (localStorage) terpisah. */
     val slot: Int = -1,
+    /** Disematkan (pin): tidak ikut tertindih saat daftar Terbaru penuh. Maksimal 10 pin. */
+    val pinned: Boolean = false,
+    val pinnedAt: Long = 0L,
 ) {
     val isSharedCopyGone: Boolean get() = kind == Kind.SHARED && (copyDeleted || copyPath.isEmpty())
 
@@ -43,6 +46,7 @@ data class ProjectRecord(
         put("lastOpened", lastOpened); put("sharedTag", sharedTag); put("sharedExt", sharedExt)
         put("copyPath", copyPath); put("copyDeleted", copyDeleted)
         put("slot", slot)
+        put("pinned", pinned); put("pinnedAt", pinnedAt)
     }
 
     companion object {
@@ -60,6 +64,8 @@ data class ProjectRecord(
             copyPath = o.optString("copyPath"),
             copyDeleted = o.optBoolean("copyDeleted"),
             slot = o.optInt("slot", -1),
+            pinned = o.optBoolean("pinned", false),
+            pinnedAt = o.optLong("pinnedAt", 0L),
         )
     }
 }
